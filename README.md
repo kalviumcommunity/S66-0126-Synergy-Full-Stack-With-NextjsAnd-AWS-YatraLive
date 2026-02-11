@@ -41,6 +41,14 @@ Ready for integration with real-time train APIs in the future
 
 ---
 
+## Code quality and Consistency
+
+* **Strict TypeScript Mode:** Enables `strict`, `noImplicitAny`, and unused checks to catch type errors and potential bugs at compile time, reducing runtime failures and improving overall code reliability.
+
+* **ESLint + Prettier Rules:** ESLint enforces code quality rules (no unused variables, consistent quotes, required semicolons), while Prettier ensures uniform formatting (indentation, spacing, trailing commas) across the project.
+
+* **Pre-Commit Hooks (Husky + lint-staged):** Automatically runs linting and formatting before every commit, preventing poorly formatted or error-prone code from being pushed and maintaining team-wide consistency.
+
 ## Future Improvements
 
 Integrate real train APIs for live data
