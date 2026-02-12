@@ -5,7 +5,16 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "lint": "next lint",
+    "lint:fix": "next lint --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "type-check": "tsc --noEmit",
+    "prepare": "husky install",
+    "seed": "tsx scripts/seed-database.ts",
+    "worker": "tsx worker/index.ts",
+    "dev:all": "concurrently \"npm run dev\" \"npm run worker\""
   },
   "dependencies": {
     "@types/uuid": "^10.0.0",
@@ -24,6 +33,22 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "eslint": "^8",
+    "eslint-config-prettier": "^9",
+    "eslint-config-next": "^13",
+    "@typescript-eslint/eslint-plugin": "^7",
+    "@typescript-eslint/parser": "^7",
+    "eslint-plugin-import": "^2",
+    "eslint-plugin-react-hooks": "^4",
+    "eslint-plugin-tailwindcss": "^3",
+    "prettier": "^3",
+    "prettier-plugin-tailwindcss": "^0.3",
+    "husky": "^8",
+    "lint-staged": "^14",
+    "commitlint": "^17",
+    "@commitlint/config-conventional": "^17",
+    "concurrently": "^8",
+    "tsx": "^3"
   }
 }
