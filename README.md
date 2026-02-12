@@ -1,86 +1,36 @@
-# YatraLive
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-A **real-time train tracking system** built with **Next.js, Redis, and TypeScript**.  
-This project simulates train schedules, delays, and status updates to help commuters make informed decisions.
+## Getting Started
 
----
+First, run the development server:
 
-## **Project Overview**
-
-Millions of local trains in India run late daily, and passengers rarely get **real-time updates** or reroutes.  
-This system provides a **demo-ready solution** to visualize train statuses in real time, including:
-
-Delayed trains
-Cancelled trains
-Updated current arrival times
-Platform information
-
----
-
-## **Tech Stack**
-
-**Frontend & API Layer:** Next.js (TypeScript)
-**Database:** PostgreSQL (planned for persistence)
-**Caching Layer:** Redis (stores real-time train updates)
-**Containerization:** Docker
-**Deployment & Cloud:** AWS or Azure (optional)
-**Version Control & CI/CD:** GitHub Actions
-
----
-## **Features**
-
-Display train details in a responsive table
-Real-time updates for train status every 5 seconds
-Color-coded status:
-  - Green → On Time
-  - Red → Delayed
-  - Gray → Cancelled
-Simulated platform and time updates
-API endpoint to fetch train data: /api/trains
-Ready for integration with real-time train APIs in the future
-
----
-
-## Future Improvements
-
-Integrate real train APIs for live data
-
-Add reroutes and alerts for passengers
-
-Store historical data in PostgreSQL
-
-Deploy using Docker + AWS/Azure
-
-## **Setup Instructions**
-
-### **1. Clone the repository**
-bash
-git clone https://github.com/kalviumcommunity/S66-0126-Synergy-Full-Stack-With-NextjsAnd-AWS-YatraLive.git
-cd S66-0126-Synergy-Full-Stack-With-NextjsAnd-AWS-YatraLive
-### 2. Install dependencies
-npm install
-
-### 3. Install and start Redis
-Windows: Download Redis
-
-Mac: brew install redis
-
-Linux: sudo apt install redis-server
-
-Start Redis server:
-
-redis-server
-### 4. Run the train simulation
-node scripts/simulateTrains.ts
-
-This script updates train status in Redis every 5 seconds.
-
-### 5. Start the Next.js server
+```bash
 npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
 
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-Open http://localhost:3000 to see the live train table.
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-### 6. Frontend
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-The frontend fetches data from /api/trains every 5 seconds and displays it in a table.
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
