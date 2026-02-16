@@ -14,10 +14,10 @@
     "prepare": "husky install",
     "seed": "tsx scripts/seed-database.ts",
     "worker": "tsx worker/index.ts",
-    "dev:all": "concurrently \"npm run dev\" \"npm run worker\""
+    "dev:all": "concurrently \"npm run dev\" \"npm run worker\"",
+    "postinstall": "husky install"
   },
   "dependencies": {
-    "@types/uuid": "^10.0.0",
     "date-fns": "^4.1.0",
     "http-status-codes": "^2.3.0",
     "ioredis": "^5.9.2",
@@ -29,9 +29,11 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/ioredis": "4.28.10",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/uuid": "9.0.8",
     "tailwindcss": "^4",
     "typescript": "^5",
     "eslint": "^8",
@@ -48,7 +50,7 @@
     "lint-staged": "^14",
     "commitlint": "^17",
     "@commitlint/config-conventional": "^17",
-    "concurrently": "^8",
-    "tsx": "^3"
+    "concurrently": "8.2.2",
+    "tsx": "4.7.0"
   }
 }
