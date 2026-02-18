@@ -15,7 +15,9 @@
     "test:redis": "tsx scripts/test-redis.ts",
     "seed": "tsx scripts/seed-database.ts",
     "worker": "tsx worker/index.ts",
-    "dev:all": "concurrently \"npm run dev\" \"npm run worker\"",
+    "worker:dev": "tsx watch worker/index.ts",
+    "test:worker": "tsx scripts/test-worker.ts",
+    "dev:all": "concurrently \"npm run dev\" \"npm run worker:dev\"",
     "postinstall": "husky install"
   },
   "dependencies": {
