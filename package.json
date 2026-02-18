@@ -12,6 +12,7 @@
     "format:check": "prettier --check .",
     "type-check": "tsc --noEmit",
     "prepare": "husky install",
+    "test:redis": "tsx scripts/test-redis.ts",
     "seed": "tsx scripts/seed-database.ts",
     "worker": "tsx worker/index.ts",
     "dev:all": "concurrently \"npm run dev\" \"npm run worker\"",
