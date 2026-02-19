@@ -80,11 +80,13 @@ export function useSSE(options: SSEOptions = {}): SSEReturn {
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
   const [lastEvent, setLastEvent] = useState<TrainEvent>();
   const [lastHeartbeat, setLastHeartbeat] = useState<number>(Date.now());
+  // Ref to keep latest reconnect attempts in closures
+  const reconnectAttemptsRef = useRef<number>(0);
   
   // Refs for cleanup
   const eventSourceRef = useRef<EventSource | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
-  const healthIntervalRef = useRef<NodeJS.Timeout>();
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const healthIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   /**
    * Update connection status with callback
@@ -116,6 +118,7 @@ export function useSSE(options: SSEOptions = {}): SSEReturn {
       console.log('SSE connection established');
       updateStatus('connected');
       setReconnectAttempts(0);
+      reconnectAttemptsRef.current = 0;
       
       // Start health check interval
       healthIntervalRef.current = setInterval(() => {
@@ -152,19 +155,28 @@ export function useSSE(options: SSEOptions = {}): SSEReturn {
     
     // Handle errors
     eventSource.onerror = (error) => {
-      console.error('SSE error:', error);
+      try {
+        // Better logging: Event objects from EventSource are often empty; log readyState and attempt info
+        console.error('SSE error event:', {
+          error,
+          readyState: eventSource.readyState,
+          reconnectAttempts: reconnectAttemptsRef.current
+        });
+      } catch (e) {
+        console.error('SSE error (logging failed):', e);
+      }
       onError?.(error);
-      
-      eventSource.close();
-      
-      if (autoReconnect && reconnectAttempts < maxReconnectAttempts) {
+
+      // Close current connection and attempt reconnect if configured
+      try { eventSource.close(); } catch {}
+
+      const attempts = reconnectAttemptsRef.current;
+      if (autoReconnect && attempts < maxReconnectAttempts) {
         updateStatus('reconnecting');
-        
-        // Exponential backoff
-        const delay = reconnectDelay * Math.pow(1.5, reconnectAttempts);
-        
+        const delay = Math.max(500, reconnectDelay * Math.pow(1.5, attempts));
         reconnectTimeoutRef.current = setTimeout(() => {
-          setReconnectAttempts(prev => prev + 1);
+          reconnectAttemptsRef.current = attempts + 1;
+          setReconnectAttempts(attempts + 1);
           connect();
         }, delay);
       } else {
