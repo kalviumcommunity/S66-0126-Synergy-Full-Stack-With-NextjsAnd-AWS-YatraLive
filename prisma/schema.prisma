@@ -199,3 +199,70 @@ model TrainPhoto {
   
   @@map("train_photos")
 }
+
+// ==============================================
+// EMAIL NOTIFICATIONS - Subscription Management
+// ==============================================
+// Track user preferences for email alerts
+model EmailSubscription {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  
+  // Subscription preferences
+  isActive     Boolean  @default(true) @map("is_active")
+  verificationToken String? @unique @map("verification_token")
+  isVerified   Boolean  @default(false) @map("is_verified")
+  verifiedAt   DateTime? @map("verified_at")
+  
+  // Unsubscribe tracking
+  unsubscribeToken String? @unique @map("unsubscribe_token")
+  unsubscribedAt   DateTime? @map("unsubscribed_at")
+  
+  // Notification preferences (JSON for flexibility)
+  preferences  Json?
+  
+  // Metadata
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  
+  @@index([isVerified])
+  @@index([isActive])
+  @@index([createdAt])
+  @@map("email_subscriptions")
+}
+
+// ==============================================
+// EMAIL LOGS - Delivery Tracking
+// ==============================================
+// Track all emails sent for auditing and debugging
+model EmailLog {
+  id           String   @id @default(uuid())
+  to           String
+  subject      String
+  template     String   // "DELAY_ALERT", "PLATFORM_CHANGE", etc.
+  
+  // Trigger info
+  trainId      String?  @map("train_id")
+  trainNumber  String?  @map("train_number")
+  delayMinutes Int?     @map("delay_minutes")
+  platform     String?
+  
+  // Delivery status
+  status       String   @default("PENDING") // "PENDING", "SENT", "FAILED", "BOUNCED"
+  provider     String   // "AWS_SES", "SENDGRID"
+  providerMessageId String? @map("provider_message_id")
+  
+  // Error tracking
+  errorMessage String?  @map("error_message")
+  errorCode    String?  @map("error_code")
+  
+  // Metadata
+  sentAt       DateTime? @map("sent_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  
+  @@index([to])
+  @@index([status])
+  @@index([trainId])
+  @@index([sentAt])
+  @@map("email_logs")
+}
