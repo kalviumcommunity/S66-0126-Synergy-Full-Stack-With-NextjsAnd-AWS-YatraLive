@@ -1,15 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withAuth, AuthenticatedRequest } from '@/lib/middleware/auth';
+import { hasPermission } from '@/lib/auth/rbac';
 import { redis } from '@/lib/redis/client';
 import { trainService } from '@/lib/services/trainService';
 import { simulationEngine } from '@/worker/simulationEngine';
 import { SimulationCommand, SimulationStatus } from '@/types/admin';
 import { WORKER_KEYS } from '@/worker/config/constants';
 import { DEFAULT_PROBABILITIES } from '@/worker/config/probabilities';
+import { auditService } from '@/lib/services/auditService';
 import { StatusCodes } from 'http-status-codes';
 
-export async function POST(request: NextRequest) {
+// Protect with authentication
+export const POST = withAuth(async (req: AuthenticatedRequest) => {
   try {
-    const command: SimulationCommand = await request.json();
+    // Check permission
+    if (!hasPermission(req.admin!.role, 'control', 'simulation')) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Insufficient permissions',
+        },
+        { status: 403 }
+      );
+    }
+
+    const command: SimulationCommand = await req.json();
+
+    // Log action
+    await auditService.logAdminAction({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      action: command.type,
+      entityType: 'SIMULATION',
+      metadata: command as any,
+    });
+
     switch (command.type) {
       case 'PAUSE':
         await redis.set(WORKER_KEYS.CONTROL, 'PAUSED');
@@ -63,16 +88,24 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: 'Invalid command type' }, { status: StatusCodes.BAD_REQUEST });
     }
   } catch (error) {
-    console.error('Simulation control failed:', error);
+    console.error('Simulation control error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to control simulation', status: StatusCodes.INTERNAL_SERVER_ERROR },
-      { status: StatusCodes.INTERNAL_SERVER_ERROR }
+      { success: false, error: 'Failed to control simulation' },
+      { status: 500 }
     );
   }
-}
+});
 
-export async function GET() {
+// Get status - viewer can view
+export const GET = withAuth(async (req: AuthenticatedRequest) => {
   try {
+    if (!hasPermission(req.admin!.role, 'view', 'simulation')) {
+      return NextResponse.json(
+        { success: false, error: 'Insufficient permissions' },
+        { status: 403 }
+      );
+    }
+
     const control = await redis.get(WORKER_KEYS.CONTROL);
     const workerStats = await redis.hgetall(WORKER_KEYS.STATUS);
     const lastRun = await redis.hgetall(WORKER_KEYS.LAST_RUN);
@@ -94,7 +127,7 @@ export async function GET() {
       { status: StatusCodes.INTERNAL_SERVER_ERROR }
     );
   }
-}
+}, { requireAuth: true });
 
 function addMinutesToTime(time: string, minutes: number): string {
   const [hours, mins] = time.split(':').map(Number);
