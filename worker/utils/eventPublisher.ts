@@ -88,6 +88,19 @@ export class EventPublisher {
       logger.error('Failed to publish batch:', error);
     }
   }
+
+  /**
+   * Get recent events for a train
+   */
+  async getTrainEvents(trainId: string, limit: number = 10): Promise<TrainEvent[]> {
+    try {
+      const events = await redis.lrange(getTrainEventsKey(trainId), 0, limit - 1);
+      return events.map(e => JSON.parse(e) as TrainEvent);
+    } catch (error) {
+      logger.error(`Failed to get events for train ${trainId}:`, error);
+      return [];
+    }
+  }
   
   // ... rest of existing methods
 }
