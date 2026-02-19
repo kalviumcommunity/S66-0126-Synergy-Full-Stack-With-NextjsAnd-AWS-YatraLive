@@ -116,6 +116,7 @@ model Admin {
   // Relationships
   sessions          AdminSession[]
   auditLogs         AuditLog[]
+  trainPhotos       TrainPhoto[]
 
   @@map("admins")
 }
@@ -146,4 +147,55 @@ model AdminSession {
   @@index([refreshToken])
   @@index([expiresAt])
   @@map("admin_sessions")
+}
+
+
+// ==============================================
+// TRAIN PHOTOS - Visual documentation
+// ==============================================
+// Photos uploaded by admins for each train
+// Like having a photo album for every locomotive
+model TrainPhoto {
+  id            String   @id @default(uuid())
+  
+  // Which train
+  trainId       String   @map("train_id")
+  trainNumber   String   @map("train_number")
+  
+  // Photo metadata
+  url           String   // Full S3 URL
+  thumbnailUrl  String?  @map("thumbnail_url") // Optimized version
+  key           String   // S3 object key (for deletion)
+  
+  // File info
+  filename      String
+  filesize      Int      // In bytes
+  mimeType      String   @map("mime_type")
+  width         Int?
+  height        Int?
+  
+  // Photo details
+  caption       String?
+  location      String?  // Where photo was taken
+  dateTaken     DateTime? @map("date_taken")
+  
+  // Who uploaded
+  uploadedById  String   @map("uploaded_by_id")
+  uploadedBy    Admin    @relation(fields: [uploadedById], references: [id])
+  
+  // Status
+  isPrimary     Boolean  @default(false) @map("is_primary") // Main display photo
+  isActive      Boolean  @default(true) @map("is_active")
+  
+  // Metadata
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  
+  // Indexes
+  @@index([trainId])
+  @@index([trainNumber])
+  @@index([uploadedById])
+  @@index([isPrimary])
+  
+  @@map("train_photos")
 }

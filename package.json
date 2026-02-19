@@ -15,6 +15,8 @@
     "test:redis": "tsx scripts/test-redis.ts",
     "test:postgres": "tsx scripts/test-postgres.ts",
     "test:all": "npm run test:redis && npm run test:postgres",
+    "test:s3": "tsx scripts/test-s3.ts",
+    "upload:test": "tsx scripts/test-upload.ts",
     "seed": "tsx scripts/seed-database.ts",
     "seed:history": "tsx scripts/seed-history.ts",
     "prisma:generate": "prisma generate",
@@ -29,6 +31,8 @@
     "postinstall": "husky install"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.515.0",
+    "@aws-sdk/s3-request-presigner": "^3.515.0",
     "@prisma/client": "^5.9.1",
     "bcryptjs": "^2.4.3",
     "cookie": "^0.6.0",
@@ -43,6 +47,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "recharts": "^3.7.0",
+    "sharp": "^0.33.2",
     "uuid": "^13.0.0"
   },
   "devDependencies": {
