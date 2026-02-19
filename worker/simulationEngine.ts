@@ -1,5 +1,6 @@
 import { Train, TrainStatus, TrainEvent } from '@/types';
 import { trainService } from '@/lib/services/trainService';
+import { journeyService } from '@/lib/services/journeyService';
 import { eventPublisher } from './utils/eventPublisher';
 import { logger } from './utils/logger';
 import {
@@ -33,6 +34,7 @@ export class SimulationEngine {
     */
     async runCycle(): Promise<{
         updatedTrains: number;
+        updatedTrainIds: string[];
         events: TrainEvent[];
     }> {
         try {
@@ -40,7 +42,7 @@ export class SimulationEngine {
             const allTrains = await trainService.getAllTrains();
             if (allTrains.length === 0) {
                 logger.warn('No trains found in database');
-                return { updatedTrains: 0, events: [] };
+                return { updatedTrains: 0, updatedTrainIds: [], events: [] };
             }
             logger.info(`Running simulation cycle on ${allTrains.length} trains`);
 
@@ -58,11 +60,12 @@ export class SimulationEngine {
             logger.info(`Cycle complete: ${events.length} events generated`);
             return {
                 updatedTrains: trainsToUpdate.length,
+                updatedTrainIds: trainsToUpdate.map((train) => train.id),
                 events
             };
         } catch (error) {
             logger.error('Simulation cycle failed:', error);
-            return { updatedTrains: 0, events: [] };
+            return { updatedTrains: 0, updatedTrainIds: [], events: [] };
         }
     }
     /**
@@ -75,6 +78,7 @@ export class SimulationEngine {
             const recoveryEvent = await recoveryMutator.applyRecovery(train);
             if (recoveryEvent) {
                 events.push(recoveryEvent);
+                await journeyService.recordDelayEvent(recoveryEvent);
             }
         }
         // 2. Check for new delays (only if not cancelled)
@@ -82,6 +86,7 @@ export class SimulationEngine {
             const delayEvent = await delayMutator.applyDelay(train);
             if (delayEvent) {
                 events.push(delayEvent);
+                await journeyService.recordDelayEvent(delayEvent);
             }
         }
         // 3. Check for platform changes

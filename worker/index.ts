@@ -1,27 +1,30 @@
 #!/usr/bin/env tsx
 
 /**
-* Train Tracker Background Worker
-*
-* This worker runs continuously, updating train statuses
-* to simulate a real-time railway system.
-*
-* Run with: npm run worker
-*
-* ANALOGY: The automatic train control system that runs
-* 24/7 in the background, making trains move and change.
-*/
+ * Train Tracker Background Worker
+ *
+ * This worker runs continuously, updating train statuses
+ * to simulate a real-time railway system.
+ *
+ * Run with: npm run worker
+ *
+ * ANALOGY: The automatic train control system that runs
+ * 24/7 in the background, making trains move and change.
+ */
 import { redis, testRedisConnection } from '@/lib/redis/client';
-import { simulationEngine } from './simulationEngine';
-import { logger } from './utils/logger';
-import { eventPublisher } from './utils/eventPublisher';
+import { eventLogger } from '@/lib/services/eventLogger';
+import { journeyService } from '@/lib/services/journeyService';
+import { trainService } from '@/lib/services/trainService';
+import { env } from '@/lib/utils/env';
+
 import {
   WORKER_NAME,
   WORKER_KEYS,
   DEFAULT_UPDATE_INTERVAL,
-  HEARTBEAT_INTERVAL
+  HEARTBEAT_INTERVAL,
 } from './config/constants';
-import { env } from '@/lib/utils/env';
+import { simulationEngine } from './simulationEngine';
+import { logger } from './utils/logger';
 class TrainWorker {
   private intervalMs: number;
   private heartbeatInterval: NodeJS.Timeout | null = null;
@@ -32,8 +35,8 @@ class TrainWorker {
     this.intervalMs = (env.simulation.workerInterval || DEFAULT_UPDATE_INTERVAL) * 1000;
   }
   /**
-  * Start the worker
-  */
+   * Start the worker
+   */
   async start() {
     logger.info(`🚂 Train Worker starting (PID: ${process.pid})`);
     logger.info(`Worker name: ${WORKER_NAME}`);
@@ -57,8 +60,8 @@ class TrainWorker {
     this.setupSignalHandlers();
   }
   /**
-  * Stop the worker gracefully
-  */
+   * Stop the worker gracefully
+   */
   async stop() {
     logger.info('🛑 Stopping worker gracefully...');
     this.shouldStop = true;
@@ -69,14 +72,14 @@ class TrainWorker {
     // Update worker status
     await redis.hset(WORKER_KEYS.STATUS, {
       status: 'stopped',
-      stoppedAt: Date.now()
+      stoppedAt: Date.now(),
     });
     logger.info('Worker stopped');
     process.exit(0);
   }
   /**
-  * Main worker loop
-  */
+   * Main worker loop
+   */
   private async runLoop() {
     while (!this.shouldStop) {
       try {
@@ -90,12 +93,27 @@ class TrainWorker {
         }
         // Run one simulation cycle
         const result = await simulationEngine.runCycle();
+        await this.recordCompletedJourneys(result.updatedTrainIds);
+
+        await eventLogger.log({
+          type: 'WORKER_CYCLE',
+          level: 'INFO',
+          source: 'worker',
+          message: `Completed cycle with ${result.events.length} events`,
+          details: {
+            duration: Date.now() - startTime,
+            trainsUpdated: result.updatedTrains,
+            events: result.events.length,
+          },
+        });
         this.cycleCount++;
 
         // Update stats in Redis
         await this.updateStats(result, Date.now() - startTime);
         // Log summary
-        logger.info(`Cycle ${this.cycleCount} complete: ${result.events.length} events in ${Date.now() - startTime}ms`);
+        logger.info(
+          `Cycle ${this.cycleCount} complete: ${result.events.length} events in ${Date.now() - startTime}ms`
+        );
         // Calculate next run time (respect interval)
         const elapsed = Date.now() - startTime;
         const waitTime = Math.max(0, this.intervalMs - elapsed);
@@ -104,26 +122,33 @@ class TrainWorker {
         }
       } catch (error) {
         logger.error('Error in worker loop:', error);
+        await eventLogger.log({
+          type: 'WORKER_ERROR',
+          level: 'ERROR',
+          source: 'worker',
+          message: error instanceof Error ? error.message : 'Unknown worker error',
+          details: { error: String(error) },
+        });
         // Wait a bit before retrying after error
         await this.sleep(5000);
       }
     }
   }
   /**
-  * Register worker in Redis
-  */
+   * Register worker in Redis
+   */
   private async registerWorker() {
     await redis.hset(WORKER_KEYS.STATUS, {
       pid: process.pid,
       name: WORKER_NAME,
       status: 'running',
       startedAt: Date.now(),
-      interval: this.intervalMs
+      interval: this.intervalMs,
     });
   }
   /**
-  * Start heartbeat
-  */
+   * Start heartbeat
+   */
   private startHeartbeat() {
     this.heartbeatInterval = setInterval(async () => {
       try {
@@ -135,9 +160,12 @@ class TrainWorker {
     }, HEARTBEAT_INTERVAL * 1000);
   }
   /**
-  * Update worker statistics
-  */
-  private async updateStats(result: { updatedTrains: number; events: any[] }, duration: number) {
+   * Update worker statistics
+   */
+  private async updateStats(
+    result: { updatedTrains: number; events: unknown[] },
+    duration: number
+  ) {
     const pipeline = redis.pipeline();
     pipeline.hincrby(WORKER_KEYS.STATUS, 'totalCycles', 1);
     pipeline.hincrby(WORKER_KEYS.STATUS, 'totalEvents', result.events.length);
@@ -145,13 +173,30 @@ class TrainWorker {
       timestamp: Date.now(),
       duration,
       events: result.events.length,
-      trainsUpdated: result.updatedTrains
+      trainsUpdated: result.updatedTrains,
     });
     await pipeline.exec();
   }
+
   /**
-  * Check if worker is paused via admin control
-  */
+   * Record completed journeys to historical storage
+   */
+  private async recordCompletedJourneys(updatedTrainIds: string[]): Promise<void> {
+    for (const trainId of updatedTrainIds) {
+      const train = await trainService.getTrain(trainId);
+      if (!train) {
+        continue;
+      }
+
+      const isAtDestination = train.currentStationIndex === train.route.length - 1;
+      if (isAtDestination) {
+        await journeyService.recordCompletedJourney(train);
+      }
+    }
+  }
+  /**
+   * Check if worker is paused via admin control
+   */
   private async isPaused(): Promise<boolean> {
     try {
       const control = await redis.get(WORKER_KEYS.CONTROL);
@@ -161,14 +206,14 @@ class TrainWorker {
     }
   }
   /**
-  * Sleep utility
-  */
+   * Sleep utility
+   */
   private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
   /**
-  * Setup signal handlers for graceful shutdown
-  */
+   * Setup signal handlers for graceful shutdown
+   */
   private setupSignalHandlers() {
     process.on('SIGTERM', () => this.stop());
     process.on('SIGINT', () => this.stop());
@@ -185,7 +230,7 @@ class TrainWorker {
 const worker = new TrainWorker();
 // Check if this file is being run directly
 if (require.main === module) {
-  worker.start().catch(error => {
+  worker.start().catch((error) => {
     logger.error('Failed to start worker:', error);
     process.exit(1);
   });

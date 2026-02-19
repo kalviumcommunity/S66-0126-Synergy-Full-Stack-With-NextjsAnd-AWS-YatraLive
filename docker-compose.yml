@@ -31,6 +31,12 @@ volumes:
   nextjs-cache:
     name: train-tracker-nextjs-cache
     driver: local
+  postgres-data:
+    name: train-tracker-postgres-data
+    driver: local
+  pgadmin-data:
+    name: train-tracker-pgadmin-data
+    driver: local
 
 # ==============================================
 # SERVICES - All components of our railway
@@ -46,23 +52,74 @@ services:
     container_name: train-tracker-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"  # Map host port 6379 to container port 6379
+      - '6379:6379' # Map host port 6379 to container port 6379
     volumes:
-      - redis-data:/data  # Persist data even if container restarts
-      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro  # Custom config
+      - redis-data:/data # Persist data even if container restarts
+      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro # Custom config
     networks:
       - train-network
     command: redis-server /usr/local/etc/redis/redis.conf
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
     environment:
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-}  # Optional password from .env
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-} # Optional password from .env
     labels:
-      - "com.train-tracker.service=redis"
-      - "com.train-tracker.description=Real-time train data store"
+      - 'com.train-tracker.service=redis'
+      - 'com.train-tracker.description=Real-time train data store'
+
+  # ------------------------------------------------------------------
+  # POSTGRESQL - Historical Archive Storage
+  # ------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: train-tracker-postgres
+    restart: unless-stopped
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-train_tracker}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-TrainTracker2024!}
+      POSTGRES_DB: ${POSTGRES_DB:-train_tracker}
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d
+    networks:
+      - train-network
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-train_tracker}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: |
+      postgres
+      -c shared_buffers=256MB
+      -c max_connections=200
+      -c log_statement=all
+
+  # ------------------------------------------------------------------
+  # PGADMIN - PostgreSQL Monitoring UI (Optional)
+  # ------------------------------------------------------------------
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: train-tracker-pgadmin
+    restart: unless-stopped
+    ports:
+      - '5050:80'
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@traintracker.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin123}
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    networks:
+      - train-network
+    depends_on:
+      - postgres
+    profiles:
+      - monitoring
 
   # ------------------------------------------------------------------
   # REDIS INSIGHTS - Monitoring Dashboard (Optional)
@@ -73,13 +130,13 @@ services:
     container_name: train-tracker-redis-insight
     restart: unless-stopped
     ports:
-      - "5540:5540"
+      - '5540:5540'
     networks:
       - train-network
     depends_on:
       - redis
     profiles:
-      - monitoring  # Only start with monitoring profile
+      - monitoring # Only start with monitoring profile
 
   # ------------------------------------------------------------------
   # NEXT.JS APP - The Passenger Display System
@@ -89,32 +146,33 @@ services:
   nextjs-app:
     build:
       context: .
-      target: ${NODE_ENV:-production}  # Build dev or prod based on env
+      target: ${NODE_ENV:-production} # Build dev or prod based on env
       dockerfile: Dockerfile
       args:
         - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
     container_name: train-tracker-app
     restart: unless-stopped
     ports:
-      - "3000:3000"  # Main web interface
+      - '3000:3000' # Main web interface
     environment:
       # Redis connection
       - REDIS_URL=redis://redis:6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
-      
+      - DATABASE_URL=${DATABASE_URL:-postgresql://train_tracker:TrainTracker2024!@postgres:5432/train_tracker?schema=public}
+
       # App configuration
       - NODE_ENV=${NODE_ENV:-production}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-      
+
       # Simulation settings
       - WORKER_UPDATE_INTERVAL=${WORKER_UPDATE_INTERVAL:-8}
       - MAX_DELAY_MINUTES=${MAX_DELAY_MINUTES:-30}
       - DELAY_PROBABILITY=${DELAY_PROBABILITY:-30}
-      
+
       # Feature flags
       - ENABLE_ADMIN=${ENABLE_ADMIN:-true}
       - ENABLE_FAVORITES=${ENABLE_FAVORITES:-true}
-      
+
       # Logging
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - DEBUG=${DEBUG:-false}
@@ -131,15 +189,18 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      test:
+        ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:3000/api/health']
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
     labels:
-      - "com.train-tracker.service=app"
-      - "com.train-tracker.description=Main web application"
+      - 'com.train-tracker.service=app'
+      - 'com.train-tracker.description=Main web application'
     # Command depends on environment
     command: >
       sh -c "
@@ -164,6 +225,7 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://train_tracker:TrainTracker2024!@postgres:5432/train_tracker?schema=public}
       - NODE_ENV=${NODE_ENV:-production}
       - WORKER_UPDATE_INTERVAL=${WORKER_UPDATE_INTERVAL:-8}
       - MAX_DELAY_MINUTES=${MAX_DELAY_MINUTES:-30}
@@ -174,8 +236,10 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
     profiles:
-      - separate-worker  # Only start with this profile
+      - separate-worker # Only start with this profile
 
   # ------------------------------------------------------------------
   # NGINX - Reverse Proxy (Optional)
@@ -187,8 +251,8 @@ services:
     container_name: train-tracker-nginx
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      - '80:80'
+      - '443:443'
     volumes:
       - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./docker/nginx/ssl:/etc/nginx/ssl:ro
@@ -198,7 +262,7 @@ services:
     depends_on:
       - nextjs-app
     profiles:
-      - with-proxy  # Only start with this profile
+      - with-proxy # Only start with this profile
 
   # ------------------------------------------------------------------
   # BACKUP SERVICE - Automated Redis Backups
@@ -227,4 +291,4 @@ services:
     depends_on:
       - redis
     profiles:
-      - with-backup  # Only start with this profile
+      - with-backup # Only start with this profile
