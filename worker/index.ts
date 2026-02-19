@@ -23,6 +23,7 @@ import {
   DEFAULT_UPDATE_INTERVAL,
   HEARTBEAT_INTERVAL,
 } from './config/constants';
+import { checkAndSendDelayAlerts, checkAndSendPlatformChangeAlerts } from './hooks/emailHooks';
 import { simulationEngine } from './simulationEngine';
 import { logger } from './utils/logger';
 class TrainWorker {
@@ -94,6 +95,12 @@ class TrainWorker {
         // Run one simulation cycle
         const result = await simulationEngine.runCycle();
         await this.recordCompletedJourneys(result.updatedTrainIds);
+
+        // Send email notifications for delays and platform changes
+        const updatedTrains = await trainService.getAllTrains();
+        const relevantTrains = updatedTrains.filter((t) => result.updatedTrainIds.includes(t.id));
+        await checkAndSendDelayAlerts(relevantTrains);
+        await checkAndSendPlatformChangeAlerts(relevantTrains);
 
         await eventLogger.log({
           type: 'WORKER_CYCLE',
