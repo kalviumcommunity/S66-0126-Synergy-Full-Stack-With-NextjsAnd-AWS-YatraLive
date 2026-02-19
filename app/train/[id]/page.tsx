@@ -3,11 +3,13 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, Clock, MapPin, Calendar, Activity } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
 
 import { PageTransition } from '@/components/layout/PageTransition';
 import { AnimatedStatusBadge } from '@/components/trains/AnimatedStatusBadge';
 import { DelayHistoryChart } from '@/components/trains/DelayHistoryChart';
 import { JourneyTimeline } from '@/components/trains/JourneyTimeline';
+import { PhotoGallery } from '@/components/trains/PhotoGallery';
 import type { Train } from '@/types';
 
 import { JourneyHistoryChart } from '../../../components/trains/JourneyHistoryChart';
@@ -18,9 +20,12 @@ export default function TrainDetailPage() {
   const [train, setTrain] = useState<Train | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'timeline' | 'history' | 'analytics' | 'stats'>(
+  const [activeTab, setActiveTab] = useState<'timeline' | 'history' | 'analytics' | 'stats' | 'photos'>(
     'timeline'
   );
+  
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'superadmin';
 
   const fetchTrain = useCallback(async () => {
     try {
@@ -125,7 +130,7 @@ export default function TrainDetailPage() {
           {/* Tabs */}
           <div className="overflow-hidden rounded-lg bg-white shadow-lg dark:bg-gray-800">
             <div className="border-b dark:border-gray-700">
-              <nav className="flex">
+              <nav className="flex overflow-x-auto">
                 <TabButton
                   active={activeTab === 'timeline'}
                   onClick={() => setActiveTab('timeline')}
@@ -140,6 +145,11 @@ export default function TrainDetailPage() {
                   active={activeTab === 'analytics'}
                   onClick={() => setActiveTab('analytics')}
                   label="Analytics"
+                />
+                <TabButton
+                  active={activeTab === 'photos'}
+                  onClick={() => setActiveTab('photos')}
+                  label="Photos"
                 />
                 <TabButton
                   active={activeTab === 'stats'}
@@ -161,6 +171,16 @@ export default function TrainDetailPage() {
                 <div>
                   <h3 className="mb-4 text-lg font-semibold">Journey Analytics</h3>
                   <JourneyHistoryChart trainId={train.id} />
+                </div>
+              )}
+              {activeTab === 'photos' && (
+                <div>
+                  <h3 className="mb-4 text-lg font-semibold">Train Photos</h3>
+                  <PhotoGallery 
+                    trainId={train.id} 
+                    trainNumber={train.number}
+                    isAdmin={isAdmin}
+                  />
                 </div>
               )}
               {activeTab === 'stats' && (
