@@ -1,0 +1,230 @@
+# ==============================================
+# TRAIN TRACKER - DOCKER COMPOSE
+# ==============================================
+# This file orchestrates all services needed for
+# our railway system to run together.
+#
+# Think of this as the master control panel that
+# starts up the entire train station with all its
+# components at once.
+# ==============================================
+
+version: '3.8'
+
+# ==============================================
+# NETWORKS - How services communicate
+# ==============================================
+# Like railway lines connecting different stations
+networks:
+  train-network:
+    driver: bridge
+    name: train-tracker-network
+
+# ==============================================
+# VOLUMES - Persistent data storage
+# ==============================================
+# Like warehouses that keep data even when trains stop running
+volumes:
+  redis-data:
+    name: train-tracker-redis-data
+    driver: local
+  nextjs-cache:
+    name: train-tracker-nextjs-cache
+    driver: local
+
+# ==============================================
+# SERVICES - All components of our railway
+# ==============================================
+services:
+  # ------------------------------------------------------------------
+  # REDIS - The Control Room / Signaling System
+  # ------------------------------------------------------------------
+  # Stores all live train data, statuses, and events
+  # Like the central control room with all train positions
+  redis:
+    image: redis:7-alpine
+    container_name: train-tracker-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"  # Map host port 6379 to container port 6379
+    volumes:
+      - redis-data:/data  # Persist data even if container restarts
+      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro  # Custom config
+    networks:
+      - train-network
+    command: redis-server /usr/local/etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}  # Optional password from .env
+    labels:
+      - "com.train-tracker.service=redis"
+      - "com.train-tracker.description=Real-time train data store"
+
+  # ------------------------------------------------------------------
+  # REDIS INSIGHTS - Monitoring Dashboard (Optional)
+  # ------------------------------------------------------------------
+  # Web UI to monitor Redis - like having windows into the control room
+  redis-insight:
+    image: redis/redisinsight:latest
+    container_name: train-tracker-redis-insight
+    restart: unless-stopped
+    ports:
+      - "5540:5540"
+    networks:
+      - train-network
+    depends_on:
+      - redis
+    profiles:
+      - monitoring  # Only start with monitoring profile
+
+  # ------------------------------------------------------------------
+  # NEXT.JS APP - The Passenger Display System
+  # ------------------------------------------------------------------
+  # Main web application showing train information
+  # Like all the departure boards and information kiosks
+  nextjs-app:
+    build:
+      context: .
+      target: ${NODE_ENV:-production}  # Build dev or prod based on env
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+    container_name: train-tracker-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"  # Main web interface
+    environment:
+      # Redis connection
+      - REDIS_URL=redis://redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      
+      # App configuration
+      - NODE_ENV=${NODE_ENV:-production}
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      
+      # Simulation settings
+      - WORKER_UPDATE_INTERVAL=${WORKER_UPDATE_INTERVAL:-8}
+      - MAX_DELAY_MINUTES=${MAX_DELAY_MINUTES:-30}
+      - DELAY_PROBABILITY=${DELAY_PROBABILITY:-30}
+      
+      # Feature flags
+      - ENABLE_ADMIN=${ENABLE_ADMIN:-true}
+      - ENABLE_FAVORITES=${ENABLE_FAVORITES:-true}
+      
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - DEBUG=${DEBUG:-false}
+    volumes:
+      # Development: mount source code for hot reload
+      - type: bind
+        source: .
+        target: /app
+        consistency: delegated
+      # Production: use volume for cache
+      - nextjs-cache:/app/.next/cache
+    networks:
+      - train-network
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "com.train-tracker.service=app"
+      - "com.train-tracker.description=Main web application"
+    # Command depends on environment
+    command: >
+      sh -c "
+      if [ \"$NODE_ENV\" = \"development\" ]; then
+        npm run dev:all;
+      else
+        node server.js & npm run worker;
+      fi
+      "
+
+  # ------------------------------------------------------------------
+  # WORKER - Separate Worker Container (Optional)
+  # ------------------------------------------------------------------
+  # Runs the simulation engine separately for better scalability
+  # Like having a dedicated train dispatcher
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: train-tracker-worker
+    restart: unless-stopped
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - NODE_ENV=${NODE_ENV:-production}
+      - WORKER_UPDATE_INTERVAL=${WORKER_UPDATE_INTERVAL:-8}
+      - MAX_DELAY_MINUTES=${MAX_DELAY_MINUTES:-30}
+      - DELAY_PROBABILITY=${DELAY_PROBABILITY:-30}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    networks:
+      - train-network
+    depends_on:
+      redis:
+        condition: service_healthy
+    profiles:
+      - separate-worker  # Only start with this profile
+
+  # ------------------------------------------------------------------
+  # NGINX - Reverse Proxy (Optional)
+  # ------------------------------------------------------------------
+  # Handles SSL, load balancing, and static file serving
+  # Like having a station manager directing traffic
+  nginx:
+    image: nginx:alpine
+    container_name: train-tracker-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+      - ./public:/usr/share/nginx/html:ro
+    networks:
+      - train-network
+    depends_on:
+      - nextjs-app
+    profiles:
+      - with-proxy  # Only start with this profile
+
+  # ------------------------------------------------------------------
+  # BACKUP SERVICE - Automated Redis Backups
+  # ------------------------------------------------------------------
+  # Regularly backs up Redis data
+  # Like having a record keeper who saves all train logs
+  backup:
+    image: alpine:latest
+    container_name: train-tracker-backup
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data:ro
+      - ./backups:/backups
+    entrypoint: |
+      sh -c "
+      apk add --no-cache redis &&
+      while true; do
+        DATE=\$$(date +\%Y\%m\%d-\%H\%M\%S);
+        redis-dump -u redis://redis:6379 > /backups/redis-backup-\$$DATE.json;
+        find /backups -name 'redis-backup-*.json' -mtime +7 -delete;
+        sleep 86400;
+      done
+      "
+    networks:
+      - train-network
+    depends_on:
+      - redis
+    profiles:
+      - with-backup  # Only start with this profile
