@@ -1,5 +1,5 @@
+import type { RedisHealth } from '../../types/redis/client';
 import { redis } from '../redis/client';
-import { RedisHealth } from '../../types/redis/client';
 
 export class HealthService {
   /**

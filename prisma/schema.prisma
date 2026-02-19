@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model JourneyHistory {
+  id                String   @id @default(uuid())
+  trainId           String   @map("train_id")
+  trainNumber       String   @map("train_number")
+  trainName         String   @map("train_name")
+  source            String
+  destination       String
+  route             Json
+  scheduledDate     DateTime @map("scheduled_date")
+  scheduledTime     String   @map("scheduled_time")
+  actualTime        String?  @map("actual_time")
+  delayMinutes      Int      @map("delay_minutes") @default(0)
+  status            String   @default("ON_TIME")
+  completedStations Json?    @map("completed_stations")
+  finalStationIndex Int?     @map("final_station_index")
+  createdAt         DateTime @map("created_at") @default(now())
+  updatedAt         DateTime @map("updated_at") @updatedAt
+
+  @@index([trainId])
+  @@index([trainNumber])
+  @@index([scheduledDate])
+  @@index([status])
+  @@index([delayMinutes])
+  @@map("journey_history")
+}
+
+model DelayPattern {
+  id           String   @id @default(uuid())
+  stationCode  String   @map("station_code")
+  trainNumber  String   @map("train_number")
+  averageDelay Float    @map("average_delay")
+  maxDelay     Int      @map("max_delay")
+  totalJourneys Int     @map("total_journeys")
+  delayedCount Int      @map("delayed_count")
+  hourOfDay    Int?     @map("hour_of_day")
+  dayOfWeek    Int?     @map("day_of_week")
+  updatedAt    DateTime @map("updated_at") @updatedAt
+
+  @@unique([stationCode, trainNumber, hourOfDay, dayOfWeek])
+  @@index([stationCode])
+  @@index([trainNumber])
+  @@map("delay_patterns")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  adminId    String?  @map("admin_id")
+  adminEmail String?  @map("admin_email")
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  beforeState Json?   @map("before_state")
+  afterState  Json?   @map("after_state")
+  metadata    Json?
+  createdAt   DateTime @map("created_at") @default(now())
+
+  @@index([adminId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model SystemEvent {
+  id        String   @id @default(uuid())
+  type      String
+  level     String   @default("INFO")
+  source    String
+  message   String
+  details   Json?
+  createdAt DateTime @map("created_at") @default(now())
+
+  @@index([type])
+  @@index([level])
+  @@index([createdAt])
+  @@map("system_events")
+}
