@@ -1,4 +1,5 @@
 #!/usr/bin/env tsx
+/* eslint-disable no-console, @typescript-eslint/no-explicit-any */
 /**
  * Database Seeding Script
  *
@@ -6,8 +7,16 @@
  *
  * This script populates Redis with initial train and station data
  */
-import { trainService } from '../lib/services/trainService';
+
+import { resolve } from 'path';
+
+import { config } from 'dotenv';
+
 import { redis } from '../lib/redis/client';
+import { trainService } from '../lib/services/trainService';
+
+// Load environment variables
+config({ path: resolve(__dirname, '../.env') });
 
 // Realistic Indian trains (simplified)
 const INITIAL_TRAINS = [
@@ -63,7 +72,13 @@ const STATIONS = [
   { code: 'HWH', name: 'Howrah', city: 'Kolkata', state: 'West Bengal', platformCount: 23 },
   { code: 'MMCT', name: 'Mumbai Central', city: 'Mumbai', state: 'Maharashtra', platformCount: 9 },
   { code: 'SBC', name: 'KSR Bengaluru', city: 'Bengaluru', state: 'Karnataka', platformCount: 10 },
-  { code: 'CNB', name: 'Kanpur Central', city: 'Kanpur', state: 'Uttar Pradesh', platformCount: 10 },
+  {
+    code: 'CNB',
+    name: 'Kanpur Central',
+    city: 'Kanpur',
+    state: 'Uttar Pradesh',
+    platformCount: 10,
+  },
   { code: 'BCT', name: 'Mumbai Central', city: 'Mumbai', state: 'Maharashtra', platformCount: 8 },
   { code: 'MAS', name: 'Chennai Central', city: 'Chennai', state: 'Tamil Nadu', platformCount: 15 },
   { code: 'PURI', name: 'Puri', city: 'Puri', state: 'Odisha', platformCount: 6 },
@@ -124,9 +139,3 @@ seedDatabase().catch((e) => {
   console.error(e);
   process.exit(1);
 });
-// Placeholder seeder for the train tracker
-import fs from 'fs';
-
-console.log('Seeder placeholder - implement seeding logic');
-
-fs.writeFileSync('data/seed.json', JSON.stringify([]));

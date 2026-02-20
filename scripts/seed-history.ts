@@ -1,6 +1,12 @@
 #!/usr/bin/env tsx
 /* eslint-disable no-console */
 
+// Load environment variables
+import { resolve } from 'path';
+
+import { config } from 'dotenv';
+config({ path: resolve(__dirname, '../.env') });
+
 import { prisma } from '../lib/prisma/client';
 import { trainService } from '../lib/services/trainService';
 

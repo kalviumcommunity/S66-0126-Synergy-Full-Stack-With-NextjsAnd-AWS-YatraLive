@@ -1,4 +1,5 @@
 #!/usr/bin/env tsx
+/* eslint-disable no-console, @typescript-eslint/no-explicit-any */
 /**
  * Redis Connection Test Script
  *
@@ -9,9 +10,17 @@
  * 2. Basic operations (set/get)
  * 3. Train service operations
  */
+
+import { resolve } from 'path';
+
+import { config } from 'dotenv';
+
 import { redis, testRedisConnection } from '../lib/redis/client';
 import { trainService } from '../lib/services/trainService';
-import { TrainInput } from '../types';
+import type { TrainInput } from '../types';
+
+// Load environment variables from .env file
+config({ path: resolve(__dirname, '../.env') });
 
 async function testRedis() {
   console.log('🚂 Testing Redis Connection...\n');

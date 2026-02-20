@@ -55,10 +55,9 @@ services:
       - '6379:6379' # Map host port 6379 to container port 6379
     volumes:
       - redis-data:/data # Persist data even if container restarts
-      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro # Custom config
     networks:
       - train-network
-    command: redis-server /usr/local/etc/redis/redis.conf
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
