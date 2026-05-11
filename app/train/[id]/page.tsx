@@ -3,16 +3,12 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, Clock, MapPin, Calendar, Activity } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
-import { useSession } from 'next-auth/react';
 
 import { PageTransition } from '@/components/layout/PageTransition';
 import { AnimatedStatusBadge } from '@/components/trains/AnimatedStatusBadge';
-import { DelayHistoryChart } from '@/components/trains/DelayHistoryChart';
 import { JourneyTimeline } from '@/components/trains/JourneyTimeline';
-import { PhotoGallery } from '@/components/trains/PhotoGallery';
+import { formatStationLabel } from '@/lib/utils/stations';
 import type { Train } from '@/types';
-
-import { JourneyHistoryChart } from '../../../components/trains/JourneyHistoryChart';
 
 export default function TrainDetailPage() {
   const params = useParams();
@@ -20,12 +16,6 @@ export default function TrainDetailPage() {
   const [train, setTrain] = useState<Train | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'timeline' | 'history' | 'analytics' | 'stats' | 'photos'>(
-    'timeline'
-  );
-  
-  const { data: session } = useSession();
-  const isAdmin = session?.user?.role === 'admin' || session?.user?.role === 'superadmin';
 
   const fetchTrain = useCallback(async () => {
     try {
@@ -92,7 +82,7 @@ export default function TrainDetailPage() {
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{train.name}</h1>
                 <p className="mt-1 text-gray-500 dark:text-gray-400">
-                  {train.number} • {train.source} → {train.destination}
+                  {train.number} • {formatStationLabel(train.source)} → {formatStationLabel(train.destination)}
                 </p>
               </div>
               <AnimatedStatusBadge status={train.status} animate={true} />
@@ -127,94 +117,9 @@ export default function TrainDetailPage() {
             </div>
           </div>
 
-          {/* Tabs */}
           <div className="overflow-hidden rounded-lg bg-white shadow-lg dark:bg-gray-800">
-            <div className="border-b dark:border-gray-700">
-              <nav className="flex overflow-x-auto">
-                <TabButton
-                  active={activeTab === 'timeline'}
-                  onClick={() => setActiveTab('timeline')}
-                  label="Journey Timeline"
-                />
-                <TabButton
-                  active={activeTab === 'history'}
-                  onClick={() => setActiveTab('history')}
-                  label="Delay History"
-                />
-                <TabButton
-                  active={activeTab === 'analytics'}
-                  onClick={() => setActiveTab('analytics')}
-                  label="Analytics"
-                />
-                <TabButton
-                  active={activeTab === 'photos'}
-                  onClick={() => setActiveTab('photos')}
-                  label="Photos"
-                />
-                <TabButton
-                  active={activeTab === 'stats'}
-                  onClick={() => setActiveTab('stats')}
-                  label="Statistics"
-                />
-              </nav>
-            </div>
-
             <div className="p-6">
-              {activeTab === 'timeline' && <JourneyTimeline train={train} />}
-              {activeTab === 'history' && (
-                <div>
-                  <h3 className="mb-4 text-lg font-semibold">Delay History</h3>
-                  <DelayHistoryChart trainId={train.id} />
-                </div>
-              )}
-              {activeTab === 'analytics' && (
-                <div>
-                  <h3 className="mb-4 text-lg font-semibold">Journey Analytics</h3>
-                  <JourneyHistoryChart trainId={train.id} />
-                </div>
-              )}
-              {activeTab === 'photos' && (
-                <div>
-                  <h3 className="mb-4 text-lg font-semibold">Train Photos</h3>
-                  <PhotoGallery 
-                    trainId={train.id} 
-                    trainNumber={train.number}
-                    isAdmin={isAdmin}
-                  />
-                </div>
-              )}
-              {activeTab === 'stats' && (
-                <div>
-                  <h3 className="mb-4 text-lg font-semibold">Train Statistics</h3>
-                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                    <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-900">
-                      <h4 className="mb-2 font-medium">Performance</h4>
-                      <div className="space-y-2">
-                        <StatRow
-                          label="On-time performance"
-                          value={`${Math.max(0, 100 - train.delayMinutes * 3)}%`}
-                        />
-                        <StatRow label="Average delay" value={`${train.delayMinutes} min`} />
-                        <StatRow label="Total distance" value={`${train.route.length * 100} km`} />
-                      </div>
-                    </div>
-                    <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-900">
-                      <h4 className="mb-2 font-medium">Route Info</h4>
-                      <div className="space-y-2">
-                        <StatRow label="Stations" value={train.route.length.toString()} />
-                        <StatRow
-                          label="Current position"
-                          value={`Station ${train.currentStationIndex + 1} of ${train.route.length}`}
-                        />
-                        <StatRow
-                          label="Progress"
-                          value={`${Math.round(((train.currentStationIndex + 1) / train.route.length) * 100)}%`}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
+              <JourneyTimeline train={train} />
             </div>
           </div>
         </div>
@@ -254,34 +159,4 @@ interface TabButtonProps {
   active: boolean;
   onClick: () => void;
   label: string;
-}
-
-function TabButton({ active, onClick, label }: TabButtonProps) {
-  return (
-    <button
-      onClick={onClick}
-      className={`relative px-6 py-3 font-medium transition-colors ${
-        active
-          ? 'text-blue-600 dark:text-blue-400'
-          : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-      }`}
-    >
-      {label}
-      {active && (
-        <motion.div
-          layoutId="activeTab"
-          className="absolute right-0 bottom-0 left-0 h-0.5 bg-blue-500"
-        />
-      )}
-    </button>
-  );
-}
-
-function StatRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between text-sm">
-      <span className="text-gray-500">{label}</span>
-      <span className="font-medium">{value}</span>
-    </div>
-  );
 }

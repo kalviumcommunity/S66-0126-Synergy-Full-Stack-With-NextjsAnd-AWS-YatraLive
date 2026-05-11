@@ -2,7 +2,7 @@
  * Email Service
  * Comprehensive email management: subscriptions, sending, logging
  */
-import { render } from 'react-email';
+import { render } from '@react-email/render';
 import { prisma } from '@/lib/prisma/client';
 import { getEmailProvider } from '@/lib/email/providers/factory';
 import { DelayAlertEmail, DelayAlertPlainText } from '@/lib/email/templates/DelayAlert';

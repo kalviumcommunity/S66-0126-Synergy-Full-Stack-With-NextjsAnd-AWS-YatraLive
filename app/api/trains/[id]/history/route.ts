@@ -6,16 +6,16 @@ import { journeyService } from '@/lib/services/journeyService';
 import { trainService } from '@/lib/services/trainService';
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export async function GET(request: NextRequest, context: RouteParams) {
   try {
     const { searchParams } = new URL(request.url);
     const days = Number.parseInt(searchParams.get('days') ?? '30', 10);
-    const parsedParams = await Promise.resolve(context.params);
+    const parsedParams = await context.params;
 
     const train = await trainService.getTrain(parsedParams.id);
     if (!train) {

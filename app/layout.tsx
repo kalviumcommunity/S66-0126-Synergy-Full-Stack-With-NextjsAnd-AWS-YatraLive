@@ -13,8 +13,8 @@ import './globals.css';
 // });
 
 export const metadata: Metadata = {
-  title: 'Real-Time Train Tracker',
-  description: 'Live train schedules, delays, and status updates',
+  title: 'YatraLive',
+  description: 'Find trains, track live delays, and monitor railway updates',
 };
 
 export default function RootLayout({

@@ -4,9 +4,9 @@ import { trainService } from '@/lib/services/trainService';
 import { StatusCodes } from 'http-status-codes';
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 /**
@@ -15,10 +15,12 @@ interface RouteParams {
  * Public endpoint to get photos for a train
  * No authentication required
  */
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(_request: NextRequest, context: RouteParams) {
   try {
+    const { id } = await context.params;
+
     // Check if train exists
-    const train = await trainService.getTrain(params.id);
+    const train = await trainService.getTrain(id);
     if (!train) {
       return NextResponse.json(
         {
@@ -32,7 +34,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // Get photos
     const photos = await prisma.trainPhoto.findMany({
       where: {
-        trainId: params.id,
+        trainId: id,
         isActive: true,
       },
       orderBy: [

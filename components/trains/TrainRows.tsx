@@ -1,17 +1,19 @@
 'use client';
 
 import { Train } from '@/types';
+import { formatStationLabel } from '@/lib/utils/stations';
 import { StatusBadge } from './StatusBadge';
 import { useState, useEffect } from 'react';
 
 interface TrainRowProps {
   train: Train;
+  onSelect?: () => void;
 }
 
 /**
  * Individual train row with animations for updates
  */
-export function TrainRow({ train }: TrainRowProps) {
+export function TrainRow({ train, onSelect }: TrainRowProps) {
   const [highlight, setHighlight] = useState(false);
   const [prevTrain, setPrevTrain] = useState(train);
   
@@ -26,9 +28,12 @@ export function TrainRow({ train }: TrainRowProps) {
   }, [train, prevTrain]);
   
   return (
-    <tr className={`transition-colors duration-500 ${
+    <tr
+      onClick={onSelect}
+      className={`transition-colors duration-500 ${
       highlight ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''
-    } hover:bg-gray-50 dark:hover:bg-gray-700/50`}>
+    } ${onSelect ? 'cursor-pointer' : ''} hover:bg-gray-50 dark:hover:bg-gray-700/50`}
+    >
       <td className="px-6 py-4">
         <div className="font-medium text-gray-900 dark:text-white">
           {train.name}
@@ -40,10 +45,10 @@ export function TrainRow({ train }: TrainRowProps) {
       
       <td className="px-6 py-4">
         <div className="text-sm text-gray-900 dark:text-white">
-          {train.source} → {train.destination}
+          {formatStationLabel(train.source)} → {formatStationLabel(train.destination)}
         </div>
         <div className="text-xs text-gray-500 dark:text-gray-400">
-          {train.route.join(' • ')}
+          {train.route.map(formatStationLabel).join(' • ')}
         </div>
       </td>
       

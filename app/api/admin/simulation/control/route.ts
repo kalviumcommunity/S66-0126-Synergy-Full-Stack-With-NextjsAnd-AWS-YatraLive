@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthenticatedRequest } from '@/lib/middleware/auth';
-import { hasPermission } from '@/lib/auth/rbac';
+import { hasPermission, type Role } from '@/lib/auth/rbac';
 import { redis } from '@/lib/redis/client';
 import { trainService } from '@/lib/services/trainService';
 import { simulationEngine } from '@/worker/simulationEngine';
@@ -14,7 +14,9 @@ import { StatusCodes } from 'http-status-codes';
 export const POST = withAuth(async (req: AuthenticatedRequest) => {
   try {
     // Check permission
-    if (!hasPermission(req.admin!.role, 'control', 'simulation')) {
+    const role = req.admin!.role as Role;
+
+    if (!hasPermission(role, 'control', 'simulation')) {
       return NextResponse.json(
         {
           success: false,
@@ -99,7 +101,9 @@ export const POST = withAuth(async (req: AuthenticatedRequest) => {
 // Get status - viewer can view
 export const GET = withAuth(async (req: AuthenticatedRequest) => {
   try {
-    if (!hasPermission(req.admin!.role, 'view', 'simulation')) {
+    const role = req.admin!.role as Role;
+
+    if (!hasPermission(role, 'view', 'simulation')) {
       return NextResponse.json(
         { success: false, error: 'Insufficient permissions' },
         { status: 403 }

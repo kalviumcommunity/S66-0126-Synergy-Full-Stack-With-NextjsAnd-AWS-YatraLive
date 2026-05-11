@@ -121,6 +121,9 @@ export function useSSE(options: SSEOptions = {}): SSEReturn {
       reconnectAttemptsRef.current = 0;
       
       // Start health check interval
+      if (healthIntervalRef.current) {
+        clearInterval(healthIntervalRef.current);
+      }
       healthIntervalRef.current = setInterval(() => {
         setLastHeartbeat(prev => prev); // Trigger re-render
       }, 1000);
@@ -167,6 +170,11 @@ export function useSSE(options: SSEOptions = {}): SSEReturn {
       }
       onError?.(error);
 
+      if (healthIntervalRef.current) {
+        clearInterval(healthIntervalRef.current);
+        healthIntervalRef.current = null;
+      }
+
       // Close current connection and attempt reconnect if configured
       try { eventSource.close(); } catch {}
 
@@ -188,7 +196,6 @@ export function useSSE(options: SSEOptions = {}): SSEReturn {
     autoReconnect,
     maxReconnectAttempts,
     reconnectDelay,
-    reconnectAttempts,
     onTrainUpdate,
     onHeartbeat,
     onError,
