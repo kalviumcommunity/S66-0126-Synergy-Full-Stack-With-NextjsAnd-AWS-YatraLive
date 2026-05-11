@@ -5,12 +5,19 @@
 
 import { CheckCircle, AlertCircle, Loader } from 'lucide-react';
 import Link from 'next/link';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
 
 export default function SubscriptionVerifiedPage() {
+  return (
+    <Suspense fallback={<StatusCard status="loading" message="Please wait while we verify your email" />}>
+      <SubscriptionVerifiedContent />
+    </Suspense>
+  );
+}
+
+function SubscriptionVerifiedContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
 
@@ -44,6 +51,10 @@ export default function SubscriptionVerifiedPage() {
     verify();
   }, [searchParams]);
 
+  return <StatusCard status={status} message={message} />;
+}
+
+function StatusCard({ status, message }: { status: 'loading' | 'success' | 'error'; message: string }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4 dark:from-slate-950 dark:to-slate-900">
       <div className="w-full max-w-md rounded-lg bg-white p-8 shadow-lg dark:bg-slate-900">
@@ -52,9 +63,7 @@ export default function SubscriptionVerifiedPage() {
             <>
               <Loader className="mx-auto mb-4 h-12 w-12 animate-spin text-blue-600" />
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Verifying...</h1>
-              <p className="mt-2 text-gray-600 dark:text-gray-400">
-                Please wait while we verify your email
-              </p>
+              <p className="mt-2 text-gray-600 dark:text-gray-400">{message}</p>
             </>
           )}
 
@@ -72,9 +81,7 @@ export default function SubscriptionVerifiedPage() {
           {status === 'error' && (
             <>
               <AlertCircle className="mx-auto mb-4 h-12 w-12 text-red-600" />
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Verification Failed
-              </h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Verification Failed</h1>
               <p className="mt-2 text-gray-600 dark:text-gray-400">{message}</p>
               <p className="mt-4 text-sm text-gray-600 dark:text-gray-400">
                 The verification link may have expired. Please try subscribing again.
@@ -91,7 +98,7 @@ export default function SubscriptionVerifiedPage() {
             </Link>
             {status === 'success' && (
               <Link
-                href="/train"
+                href="/"
                 className="flex-1 rounded-lg border border-blue-600 px-4 py-2 font-medium text-blue-600 transition-colors hover:bg-blue-50 dark:hover:bg-slate-800"
               >
                 View Trains

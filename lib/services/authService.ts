@@ -106,7 +106,6 @@ export class AuthService {
                 adminId: admin.id,
                 refreshToken,
                 accessToken,
-                sessionId,
                 userAgent,
                 ipAddress,
                 expiresAt,
@@ -185,7 +184,7 @@ export class AuthService {
 
         const newRefreshToken = generateRefreshToken(
             session.admin.id,
-            session.sessionId
+            session.id
         );
 
         // Update session

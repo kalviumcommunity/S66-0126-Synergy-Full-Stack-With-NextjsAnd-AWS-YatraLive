@@ -1,6 +1,7 @@
 'use client';
 import { motion } from 'framer-motion';
 import { Train } from '@/types';
+import { getStationName } from '@/lib/utils/stations';
 import { CheckCircle, Clock, MapPin, AlertTriangle } from 'lucide-react';
 
 interface JourneyTimelineProps {
@@ -15,26 +16,36 @@ interface JourneyTimelineProps {
 export function JourneyTimeline({ train }: JourneyTimelineProps) {
     const stations = train.route;
     const currentIndex = train.currentStationIndex;
+    const stationSchedule = buildRouteSchedule(train.scheduledArrival, stations.length);
 
-    // Calculate if train is delayed at each station
-    const getStationDelay = (index: number) => {
-        if (index <= currentIndex) {
-            // Stations passed - show actual vs scheduled
+    const getStationTiming = (index: number) => {
+        const scheduled = stationSchedule[index] ?? train.scheduledArrival;
+
+        if (train.status === 'CANCELLED') {
             return {
-                delayed: train.delayMinutes > 0,
-                time: train.expectedArrival
-            };
-        } else {
-            // Future stations - show estimated
-            // Simple propagation: each station adds 5 minutes if delayed
-            const estimatedDelay = train.delayMinutes > 0
-                ? train.delayMinutes + (index - currentIndex) * 5
-                : 0;
-            return {
-                delayed: estimatedDelay > 0,
-                time: addMinutesToTime(train.scheduledArrival, estimatedDelay)
+                scheduled,
+                expected: 'Cancelled',
+                delayed: false,
+                effectiveDelay: 0,
             };
         }
+
+        let effectiveDelay = 0;
+
+        if (index < currentIndex) {
+            effectiveDelay = Math.max(train.delayMinutes - (currentIndex - index) * 3, 0);
+        } else if (index === currentIndex) {
+            effectiveDelay = train.delayMinutes;
+        } else if (train.delayMinutes > 0) {
+            effectiveDelay = train.delayMinutes + (index - currentIndex) * 5;
+        }
+
+        return {
+            scheduled,
+            expected: addMinutesToTime(scheduled, effectiveDelay),
+            delayed: effectiveDelay > 0,
+            effectiveDelay,
+        };
     };
 
     return (
@@ -50,7 +61,7 @@ export function JourneyTimeline({ train }: JourneyTimelineProps) {
                         const isPassed = index < currentIndex;
                         const isCurrent = index === currentIndex;
                         const isFuture = index > currentIndex;
-                        const stationDelay = getStationDelay(index);
+                        const stationTiming = getStationTiming(index);
 
                         return (
                             <motion.div
@@ -93,7 +104,7 @@ export function JourneyTimeline({ train }: JourneyTimelineProps) {
                                     <div className="flex justify-between items-start">
                                         <div>
                                             <h4 className="font-medium">
-                                                {station}
+                                                {getStationName(station)}
                                                 {isCurrent && (
                                                     <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full">
                                                         CURRENT
@@ -101,19 +112,19 @@ export function JourneyTimeline({ train }: JourneyTimelineProps) {
                                                 )}
                                             </h4>
                                             <p className="text-sm text-gray-500">
-                                                {getStationName(station)}
+                                                {station}
                                             </p>
                                         </div>
                                         <div className="text-right">
                                             <div className="text-sm">
-                                                Scheduled: {train.scheduledArrival}
+                                                Scheduled: {stationTiming.scheduled}
                                             </div>
-                                            <div className={`text-sm font-medium ${stationDelay.delayed
+                                            <div className={`text-sm font-medium ${stationTiming.delayed
                                                     ? 'text-orange-600 dark:text-orange-400'
                                                     : 'text-green-600 dark:text-green-400'
                                                 }`}>
-                                                Expected: {stationDelay.time}
-                                                {stationDelay.delayed && isFuture && (
+                                                Expected: {stationTiming.expected}
+                                                {stationTiming.delayed && isFuture && train.status !== 'CANCELLED' && (
                                                     <span className="ml-2 text-xs text-orange-500">
                                                         (est.)
                                                     </span>
@@ -123,7 +134,7 @@ export function JourneyTimeline({ train }: JourneyTimelineProps) {
                                     </div>
 
                                     {/* Delay indicator */}
-                                    {stationDelay.delayed && (
+                                    {stationTiming.delayed && train.status !== 'CANCELLED' && (
                                         <motion.div
                                             initial={{ opacity: 0, height: 0 }}
                                             animate={{ opacity: 1, height: 'auto' }}
@@ -132,10 +143,10 @@ export function JourneyTimeline({ train }: JourneyTimelineProps) {
                                             <AlertTriangle className="w-3 h-3" />
                                             <span>
                                                 {isPassed
-                                                    ? `Departed ${train.delayMinutes} min late`
+                                                    ? `Departed ${stationTiming.effectiveDelay} min late`
                                                     : isCurrent
-                                                        ? `Currently ${train.delayMinutes} min late`
-                                                        : `Expected delay: ${train.delayMinutes + (index - currentIndex) * 5} min`}
+                                                        ? `Currently ${stationTiming.effectiveDelay} min late`
+                                                        : `Expected delay: ${stationTiming.effectiveDelay} min`}
                                             </span>
                                         </motion.div>
                                     )}
@@ -158,18 +169,26 @@ function addMinutesToTime(time: string, minutes: number): string {
     return `${newHours.toString().padStart(2, '0')}:${newMins.toString().padStart(2, '0')}`;
 }
 
-function getStationName(code: string): string {
-    const stations: Record<string, string> = {
-        NDLS: 'New Delhi',
-        HWH: 'Howrah',
-        MMCT: 'Mumbai Central',
-        SBC: 'KSR Bengaluru',
-        CNB: 'Kanpur Central',
-        BCT: 'Mumbai Central',
-        MAS: 'Chennai Central',
-        PURI: 'Puri',
-        GAYA: 'Gaya',
-        ALD: 'Prayagraj'
-    };
-    return stations[code] || code;
+function buildRouteSchedule(finalArrival: string, stationCount: number): string[] {
+    if (stationCount <= 1) {
+        return [finalArrival];
+    }
+
+    const segmentDurations = Array.from({ length: stationCount - 1 }, (_, index) => getSegmentTravelMinutes(index));
+    const totalJourneyMinutes = segmentDurations.reduce((sum, duration) => sum + duration, 0);
+    const originDeparture = addMinutesToTime(finalArrival, -totalJourneyMinutes);
+    const schedule = [originDeparture];
+    let elapsed = 0;
+
+    for (const duration of segmentDurations) {
+        elapsed += duration;
+        schedule.push(addMinutesToTime(originDeparture, elapsed));
+    }
+
+    return schedule;
+}
+
+function getSegmentTravelMinutes(index: number): number {
+    const pattern = [55, 70, 85, 95, 110, 80];
+    return pattern[index % pattern.length];
 }

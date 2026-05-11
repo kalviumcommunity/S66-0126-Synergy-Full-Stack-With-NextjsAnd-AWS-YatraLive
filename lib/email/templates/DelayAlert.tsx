@@ -2,20 +2,7 @@
  * Delay Alert Email Template
  * Sent when a train experiences a significant delay
  */
-import {
-  Body,
-  Button,
-  Container,
-  Head,
-  Hr,
-  Html,
-  Img,
-  Link,
-  Preview,
-  Row,
-  Section,
-  Text,
-} from '@react-email/components';
+import { Body, Button, Container, Head, Hr, Html, Link, Preview, Row, Section, Text } from '@react-email/components';
 import React from 'react';
 
 interface DelayAlertEmailProps {
@@ -48,9 +35,7 @@ export function DelayAlertEmail({
   return (
     <Html>
       <Head />
-      <Preview>
-        Train {trainNumber} delayed by {currentDelay} minutes
-      </Preview>
+      <Preview>{`Train ${trainNumber} delayed by ${currentDelay} minutes`}</Preview>
       <Body style={main}>
         <Container style={container}>
           {/* Header */}

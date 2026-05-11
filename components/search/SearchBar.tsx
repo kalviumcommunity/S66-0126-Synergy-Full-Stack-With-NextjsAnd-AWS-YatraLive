@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, X, Clock, TrendingUp } from 'lucide-react';
 import { useSearch } from '@/lib/hooks/useSearch';
+import { formatStationLabel } from '@/lib/utils/stations';
 import { Train } from '@/types';
 
 interface SearchBarProps {
@@ -161,12 +162,12 @@ export function SearchBar({ onSearch, trains, placeholder = 'Search trains...' }
                                                 handleSearch(train.number);
                                             }
                                         }}
-                                    >
-                                        <div className="font-medium">{train.name}</div>
-                                        <div className="text-sm text-gray-500">
-                                            {train.number} • {train.source} → {train.destination}
-                                        </div>
-                                    </button>
+                                        >
+                                            <div className="font-medium">{train.name}</div>
+                                            <div className="text-sm text-gray-500">
+                                            {train.number} • {formatStationLabel(train.source)} → {formatStationLabel(train.destination)}
+                                            </div>
+                                        </button>
                                 ))}
                                 {results.length === 0 && (
                                     <div className="px-2 py-4 text-center text-gray-500">

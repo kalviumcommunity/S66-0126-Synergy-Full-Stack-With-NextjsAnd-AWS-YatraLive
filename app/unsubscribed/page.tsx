@@ -5,12 +5,19 @@
 
 import { CheckCircle, AlertCircle, Loader } from 'lucide-react';
 import Link from 'next/link';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
 
 export default function UnsubscribedPage() {
+  return (
+    <Suspense fallback={<UnsubscribeStatusCard status="loading" message="Please wait while we process your request" />}>
+      <UnsubscribedContent />
+    </Suspense>
+  );
+}
+
+function UnsubscribedContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
 
@@ -44,6 +51,10 @@ export default function UnsubscribedPage() {
     unsubscribe();
   }, [searchParams]);
 
+  return <UnsubscribeStatusCard status={status} message={message} />;
+}
+
+function UnsubscribeStatusCard({ status, message }: { status: 'loading' | 'success' | 'error'; message: string }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4 dark:from-slate-950 dark:to-slate-900">
       <div className="w-full max-w-md rounded-lg bg-white p-8 shadow-lg dark:bg-slate-900">
@@ -52,9 +63,7 @@ export default function UnsubscribedPage() {
             <>
               <Loader className="mx-auto mb-4 h-12 w-12 animate-spin text-blue-600" />
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Processing...</h1>
-              <p className="mt-2 text-gray-600 dark:text-gray-400">
-                Please wait while we process your request
-              </p>
+              <p className="mt-2 text-gray-600 dark:text-gray-400">{message}</p>
             </>
           )}
 
@@ -74,9 +83,7 @@ export default function UnsubscribedPage() {
           {status === 'error' && (
             <>
               <AlertCircle className="mx-auto mb-4 h-12 w-12 text-red-600" />
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Unsubscribe Failed
-              </h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Unsubscribe Failed</h1>
               <p className="mt-2 text-gray-600 dark:text-gray-400">{message}</p>
               <p className="mt-4 text-sm text-gray-600 dark:text-gray-400">
                 The unsubscribe link may have expired. Please contact support.

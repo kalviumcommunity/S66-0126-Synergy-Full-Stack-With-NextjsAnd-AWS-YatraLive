@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Train, TrainEvent } from '@/types';
-import { useSSE } from './useSSE';
+import { useSSE, type ConnectionStatus } from './useSSE';
 
 /**
  * Train store hook
@@ -13,6 +13,7 @@ export function useTrains() {
   const [trains, setTrains] = useState<Record<string, Train>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasLoadedInitialData = useRef(false);
   
   /**
    * Apply event to train state
@@ -87,24 +88,15 @@ export function useTrains() {
     });
   }, []);
   
-  // Initialize SSE connection
-  const { status, health, lastEvent } = useSSE({
-    onTrainUpdate: applyEvent,
-    onError: (err) => setError('SSE connection error'),
-    onConnectionChange: (newStatus) => {
-      if (newStatus === 'connected') {
-        // Refresh data on reconnect
-        fetchTrains();
-      }
-    }
-  });
-  
   /**
    * Fetch initial train data
    */
   const fetchTrains = useCallback(async () => {
     try {
-      setLoading(true);
+      if (!hasLoadedInitialData.current) {
+        setLoading(true);
+      }
+
       const response = await fetch('/api/trains');
       const data = await response.json();
       
@@ -115,15 +107,34 @@ export function useTrains() {
           trainRecord[train.id] = train;
         });
         setTrains(trainRecord);
+        setError(null);
+        hasLoadedInitialData.current = true;
       } else {
         setError(data.error);
       }
-    } catch (err) {
+    } catch {
       setError('Failed to fetch trains');
     } finally {
       setLoading(false);
     }
   }, []);
+
+  const handleSSEError = useCallback(() => {
+    setError((current) => current ?? 'Live updates temporarily unavailable');
+  }, []);
+
+  const handleConnectionChange = useCallback((newStatus: ConnectionStatus) => {
+    if (newStatus === 'connected') {
+      fetchTrains();
+    }
+  }, [fetchTrains]);
+
+  // Initialize SSE connection
+  const { status, health, lastEvent } = useSSE({
+    onTrainUpdate: applyEvent,
+    onError: handleSSEError,
+    onConnectionChange: handleConnectionChange,
+  });
   
   // Load initial data
   useEffect(() => {
